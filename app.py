@@ -9,8 +9,9 @@ import datetime
 from PIL import Image
 import plotly.express as expression_px
 import difflib
+from moviepy.editor import VideoFileClip, AudioFileClip
 
-st.set_page_config(page_title="Enterprise Universal File Analyzer", layout="wide")
+st.set_page_config(page_title="Enterprise Universal File & Media Analyzer", layout="wide")
 
 # --- CUSTOM THEME SETTINGS ---
 with st.sidebar:
@@ -20,8 +21,8 @@ with st.sidebar:
     st.markdown("**Batasan Sistem:**")
     st.text("• Maksimal ukuran file: 200 MB\n• Pembersihan memori otomatis aktif")
 
-st.title("📂 Enterprise Universal File & Data Analyzer")
-st.write("Aplikasi analisis file profesional dengan multi-file batch processing, filter lanjutan, perbandingan file, dan visualisasi interaktif.")
+st.title("📂 Enterprise Universal File, Data & Media Analyzer")
+st.write("Aplikasi analisis file profesional dengan dukungan multi-file, filter data, perbandingan file teks, serta analisis file video dan audio.")
 
 # --- 1. FILE DIRECTORY & ENSIKLOPEDIA FORMAT ---
 FILE_DIRECTORY = {
@@ -37,15 +38,19 @@ FILE_DIRECTORY = {
     "jpg": ("Gambar JPEG", "Format gambar terkompresi umum."),
     "jpeg": ("Gambar JPEG", "Format gambar standar."),
     "webp": ("Gambar WebP", "Format gambar modern berukuran kecil."),
-    "zip": ("Arsip ZIP", "Format file kompresi data.")
+    "zip": ("Arsip ZIP", "Format file kompresi data."),
+    "mp4": ("Video MP4", "Format media video digital standar kompresi tinggi."),
+    "avi": ("Video AVI", "Format kontainer multimedia Audio Video Interleave."),
+    "mkv": ("Video MKV", "Format kontainer video terbuka yang mendukung banyak trek."),
+    "mp3": ("Audio MP3", "Format file kompresi audio digital populer."),
+    "wav": ("Audio WAV", "Format audio gelombang tanpa kompresi berkualitas tinggi.")
 }
 
-# --- 2. PILIHAN MODE UTAMA (SINGLE, BATCH, ATAU DIFF) ---
+# --- 2. PILIHAN MODE UTAMA ---
 app_mode = st.radio("Pilih Mode Kerja Aplikasi:", ["Analisis Tunggal / Batch (Banyak File)", "Perbandingan Dua File (Diff Tool)"], horizontal=True)
 st.markdown("---")
 
 if app_mode == "Analisis Tunggal / Batch (Banyak File)":
-    # Tombol Sampel Data Bawaan
     use_sample = st.sidebar.button("🧪 Coba dengan Data Contoh (CSV)")
     
     uploaded_files = []
@@ -71,10 +76,9 @@ if app_mode == "Analisis Tunggal / Batch (Banyak File)":
                     return self._file.read()
             uploaded_files = [SampleFile(f, "sample_penjualan.csv")]
     else:
-        # Multi-file support (Drag-and-Drop banyak file)
         uploaded_files = st.file_uploader(
-            "Unggah satu atau beberapa file sekaligus (CSV, Excel, JSON, PDF, TXT, Gambar, ZIP):", 
-            type=["csv", "xlsx", "xls", "json", "txt", "pdf", "docx", "png", "jpg", "jpeg", "webp", "zip", "py", "md"],
+            "Unggah file (Dokumen, Tabular, Gambar, Arsip, atau Video/Audio):", 
+            type=["csv", "xlsx", "xls", "json", "txt", "pdf", "docx", "png", "jpg", "jpeg", "webp", "zip", "py", "md", "mp4", "avi", "mkv", "mp3", "wav"],
             accept_multiple_files=True
         )
 
@@ -132,7 +136,6 @@ if app_mode == "Analisis Tunggal / Batch (Banyak File)":
                     elif file_extension == "json":
                         df = pd.read_json(temp_path)
 
-                    # KPI Utama
                     st.write("#### 📊 Ringkasan Statistik Utama (KPI)")
                     kpi1, kpi2, kpi3, kpi4 = st.columns(4)
                     kpi1.metric("Total Baris", df.shape[0])
@@ -140,7 +143,6 @@ if app_mode == "Analisis Tunggal / Batch (Banyak File)":
                     kpi3.metric("Sel Kosong (Missing)", int(df.isnull().sum().sum()))
                     kpi4.metric("Duplikat Data", int(df.duplicated().sum()))
 
-                    # Advanced Query Builder & Data Filtering
                     st.write("#### 🔎 Advanced Data Filtering & Query Builder")
                     enable_filter = st.checkbox(f"Aktifkan Filter Data untuk {file_name}", value=False)
                     filtered_df = df
@@ -155,11 +157,9 @@ if app_mode == "Analisis Tunggal / Batch (Banyak File)":
                             selected_vals = st.multiselect(f"Pilih nilai {filter_col}", unique_vals, default=unique_vals[:min(5, len(unique_vals))], key=f"multi_{file_name}")
                             filtered_df = df[df[filter_col].astype(str).isin(selected_vals)]
 
-                    # Pratinjau Tabel Interaktif
                     st.write("#### 📋 Pratinjau Data Tabel")
                     st.dataframe(filtered_df, use_container_width=True)
 
-                    # Visualisasi Plotly Dinamis
                     st.write("#### 📈 Visualisasi Grafik Dinamis")
                     numeric_cols = filtered_df.select_dtypes(include=['number']).columns.tolist()
                     categorical_cols = filtered_df.select_dtypes(include=['object', 'category']).columns.tolist()
@@ -179,7 +179,6 @@ if app_mode == "Analisis Tunggal / Batch (Banyak File)":
                     else:
                         st.warning("Kolom numerik tidak mencukupi untuk membuat grafik.")
 
-                    # Ekspor Data
                     csv_export = filtered_df.to_csv(index=False).encode('utf-8')
                     st.download_button(
                         label=f"⬇️ Unduh Data Olahan ({file_name})",
@@ -189,7 +188,6 @@ if app_mode == "Analisis Tunggal / Batch (Banyak File)":
                         use_container_width=True,
                         key=f"dl_{file_name}"
                     )
-
                 except Exception as e:
                     st.error(f"Gagal memproses file tabular {file_name}: {e}")
 
@@ -208,13 +206,11 @@ if app_mode == "Analisis Tunggal / Batch (Banyak File)":
                     t1.metric("Estimasi Jumlah Kata", len(extracted_text.split()))
                     t2.metric("Jumlah Karakter", len(extracted_text))
 
-                    # Pencarian Kata Kunci
                     keyword = st.text_input(f"Cari kata dalam {file_name}:", key=f"kw_{file_name}")
                     if keyword:
                         count_kw = extracted_text.lower().count(keyword.lower())
                         st.info(f"Kata '**{keyword}**' ditemukan sebanyak **{count_kw}** kali.")
 
-                    # Editor Teks Langsung
                     edited_content = st.text_area(f"Editor Teks ({file_name}):", value=extracted_text, height=250, key=f"edit_{file_name}")
                     st.download_button(
                         label=f"💾 Unduh Dokumen Suntingan ({file_name})",
@@ -224,7 +220,6 @@ if app_mode == "Analisis Tunggal / Batch (Banyak File)":
                         use_container_width=True,
                         key=f"dl_txt_{file_name}"
                     )
-
                 except Exception as e:
                     st.error(f"Gagal membaca teks {file_name}: {e}")
 
@@ -240,6 +235,31 @@ if app_mode == "Analisis Tunggal / Batch (Banyak File)":
                     st.image(img, caption=file_name, use_column_width=True)
                 except Exception as e:
                     st.error(f"Gagal memuat gambar: {e}")
+
+            # --- ROUTER 5: VIDEO & AUDIO (MEDIA ANALYZER) ---
+            elif file_extension in ["mp4", "avi", "mkv", "mp3", "wav"]:
+                try:
+                    if file_extension in ["mp4", "avi", "mkv"]:
+                        clip = VideoFileClip(temp_path)
+                        st.write("#### 🎬 Metadata & Pemutar Video")
+                        v1, v2, v3 = st.columns(3)
+                        v1.metric("Durasi", f"{int(clip.duration)} detik")
+                        v2.metric("Resolusi", f"{clip.size[0]} x {clip.size[1]} px")
+                        v3.metric("Frame Rate", f"{clip.fps:.2f} fps")
+                        
+                        st.video(uploaded_file)
+                        clip.close()
+                    else:
+                        clip = AudioFileClip(temp_path)
+                        st.write("#### 🎵 Metadata & Pemutar Audio")
+                        a1, a2 = st.columns(2)
+                        a1.metric("Durasi Audio", f"{int(clip.duration)} detik")
+                        a2.metric("Jumlah Saluran (Channels)", clip.nchannels)
+                        
+                        st.audio(uploaded_file)
+                        clip.close()
+                except Exception as e:
+                    st.error(f"Gagal memproses file media: {e}")
 
             st.markdown("---")
             try:
