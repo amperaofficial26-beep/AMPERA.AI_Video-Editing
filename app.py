@@ -12,7 +12,7 @@ import difflib
 from moviepy.editor import VideoFileClip, AudioFileClip
 import base64
 
-st.set_page_config(page_title="Ampera Enterprise Universal File & Media Analyzer", layout="wide")
+st.set_page_config(page_title="Enterprise Universal File & Media Analyzer", layout="wide")
 
 # Fungsi untuk membaca file lokal menjadi base64 untuk latar belakang CSS
 def get_base64_of_bin_file(bin_file):
@@ -39,7 +39,7 @@ for f in logo_file_options:
         logo_path = f
         break
 
-# Konfigurasi CSS Background Kustom
+# Konfigurasi CSS Background Kustom & Styling Judul
 if bg_path:
     bin_str = get_base64_of_bin_file(bg_path)
     page_bg_css = f"""
@@ -55,8 +55,17 @@ if bg_path:
         background-color: rgba(30, 41, 59, 0.92);
         border-right: 1px solid #334155;
     }}
-    h1, h2, h3, h4 {{
+    .header-container {{
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        margin-bottom: 10px;
+    }}
+    .header-title {{
+        font-size: 2.5rem;
+        font-weight: 700;
         color: #f1f5f9 !important;
+        margin: 0;
     }}
     </style>
     """
@@ -71,8 +80,17 @@ else:
         background-color: #1e293b;
         border-right: 1px solid #334155;
     }
-    h1, h2, h3, h4 {
+    .header-container {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        margin-bottom: 10px;
+    }
+    .header-title {
+        font-size: 2.5rem;
+        font-weight: 700;
         color: #f1f5f9 !important;
+        margin: 0;
     }
     </style>
     """
@@ -80,9 +98,8 @@ else:
 st.markdown(page_bg_css, unsafe_allow_html=True)
 
 with st.sidebar:
-    # Menampilkan Logo dari file "logo file analisa"
     if logo_path:
-        st.image(logo_path, width=100)
+        st.image(logo_path, width=120)
     else:
         st.info("💡 Tips: Letakkan file gambar bernama **'logo file analisa.png'** di folder ini.")
     
@@ -91,16 +108,20 @@ with st.sidebar:
     st.markdown("**Batasan Sistem:**")
     st.text("• Maksimal ukuran file: 200 MB\n• Pembersihan memori otomatis aktif")
 
-# --- HEADER UTAMA DENGAN LOGO ---
-col_head1, col_head2 = st.columns([0.08, 0.92])
-with col_head1:
-    if logo_path:
-        st.image(logo_path, width=60)
-with col_head2:
-    st.title("Ampera Enterprise Universal File, Data & Media Analyzer")
+# --- HEADER UTAMA DENGAN LOGO BESAR PAS DI SAMPING JUDUL ---
+if logo_path:
+    logo_base64 = get_base64_of_bin_file(logo_path)
+    st.markdown(f"""
+        <div class="header-container">
+            <img src="data:image/png;base64,{logo_base64}" width="85" style="border-radius: 10px;">
+            <h1 class="header-title">Ampera Enterprise Analyzer</h1>
+        </div>
+    """, unsafe_allow_html=True)
+else:
+    st.title("Ampera Enterprise Analyzer")
 
 if not bg_path:
-    st.warning("⚠️ File background **'bg file analisa'** (format .png/.jpg) belum ditemukan di folder aplikasi. Aplikasi saat ini menggunakan latar belakang gelap standar.")
+    st.warning("⚠️ File background **'bg file analisa'** (format .png/.jpg) belum ditemukan di folder aplikasi.")
 
 st.write("Aplikasi analisis file profesional dengan antarmuka yang rapi, bersih, dan menggunakan aset kustom Anda.")
 
