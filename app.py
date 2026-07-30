@@ -12,7 +12,7 @@ import difflib
 from moviepy.editor import VideoFileClip, AudioFileClip
 import base64
 
-st.set_page_config(page_title="Enterprise Universal File & Media Analyzer", layout="wide")
+st.set_page_config(page_title="Ampera Enterprise Universal File & Media Analyzer", layout="wide")
 
 # Fungsi untuk membaca file lokal menjadi base64 untuk latar belakang CSS
 def get_base64_of_bin_file(bin_file):
@@ -118,7 +118,7 @@ if logo_path:
         </div>
     """, unsafe_allow_html=True)
 else:
-    st.title("Ampera Enterprise Analyzer")
+    st.title("Ampera Enterprise Universal File & Media Analyzer")
 
 if not bg_path:
     st.warning("⚠️ File background **'bg file analisa'** (format .png/.jpg) belum ditemukan di folder aplikasi.")
