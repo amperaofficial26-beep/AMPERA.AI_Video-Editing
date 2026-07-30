@@ -1,65 +1,104 @@
 import streamlit as st
-import cv2
-import tempfile
+import pandas as pd
+import json
+import pdfplumber
+import zipfile
 import os
 
-# Mengatur agar layout halaman memenuhi layar (opsional tapi bagus untuk editor)
-st.set_page_config(page_title="Mini Video Editor", layout="wide")
+st.set_page_config(page_title="Universal File Analyzer", layout="wide")
 
-st.title("🎥 Mini Video Editor (CapCut Style)")
-st.write("Aplikasi edit video dengan panel kontrol di bagian bawah.")
+st.title("📁 Universal File Analyzer (Tanpa AI)")
+st.write("Unggah file apa saja (CSV, Excel, PDF, JSON, TXT, ZIP) untuk melihat analisis struktur, statistik, dan isinya secara instan.")
 
-# Bagian Upload Video (Di atas)
-uploaded_video = st.file_uploader("Pilih file video Anda (.mp4, .mov)", type=["mp4", "mov", "avi"])
+# Bagian Upload File Universal
+uploaded_file = st.file_uploader("Pilih file Anda", type=["csv", "xlsx", "xls", "json", "txt", "pdf", "zip"])
 
-if uploaded_video is not None:
-    # Simpan file sementara agar bisa dibaca OpenCV
-    tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
-    tfile.write(uploaded_video.read())
+if uploaded_file is not None:
+    file_name = uploaded_file.name
+    file_extension = file_name.split('.')[-1].lower()
+    file_size = uploaded_file.size / 1024 # dalam KB
     
-    # Membaca video menggunakan OpenCV
-    cap = cv2.VideoCapture(tfile.name)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    duration = total_frames / fps if fps > 0 else 0
-    
-    # --- BAGIAN ATAS: PREVIEW VIDEO UTAMA ---
-    st.subheader("Preview Video")
-    col_preview1, col_preview2 = st.columns([2, 1])
-    
-    with col_preview1:
-        st.video(uploaded_video)
-        
-    with col_preview2:
-        st.info("📊 **Info File**")
-        st.write(f"• Resolusi: **{width}x{height}**")
-        st.write(f"• Durasi: **{duration:.2f} detik**")
-        st.write(f"• Framerate: **{fps:.1f} FPS**")
-
-    # Garis pemisah visual ala pembatas timeline
+    # Menampilkan Informasi Metadata Dasar File
     st.markdown("---")
+    st.subheader("📊 Informasi Dasar File")
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Nama File", file_name)
+    m2.metric("Format / Ekstensi", file_extension.upper())
+    m3.metric("Ukuran File", f"{file_size:.2f} KB")
+    
+    st.markdown("---")
+    st.subheader("🔍 Hasil Analisis & Isi File")
+    
+    # 1. ANALISIS FILE TABULAR (CSV / Excel)
+    if file_extension in ["csv", "xlsx", "xls"]:
+        if file_extension == "csv":
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
+            
+        tab1, tab2, tab3 = st.tabs(["Pratinjau Data", "Statistik Ringkas", "Info Kolom"])
+        
+        with tab1:
+            st.write(f"Menampilkan {min(50, len(df))} baris pertama dari total {len(df)} baris data:")
+            st.dataframe(df.head(50), use_container_width=True)
+            
+        with tab2:
+            st.write("Ringkasan Statistik Angka (Mean, Min, Max, dll):")
+            st.dataframe(df.describe(), use_container_width=True)
+            
+        with tab3:
+            st.write("Daftar Tipe Data Setiap Kolom:")
+            buffer_info = pd.DataFrame({
+                "Kolom": df.columns,
+                "Tipe Data": df.dtypes.astype(str),
+                "Data Kosong (Null)": df.isnull().sum()
+            })
+            st.dataframe(buffer_info, use_container_width=True)
 
-    # --- BAGIAN BAWAH: PANEL KONTROL / TIMELINE ALA CAPCUT ---
-    st.markdown("### 🎛️ Panel Kontrol & Timeline Editor")
-    
-    # Membagi panel bawah menjadi beberapa kolom pengatur (seperti menu efek/potong di bawah CapCut)
-    ctrl_col1, ctrl_col2 = st.columns(2)
-    
-    with ctrl_col1:
-        st.write("**Potong Durasi (Trimming)**")
-        start_time = st.slider("Mulai (detik):", 0.0, float(duration), 0.0)
-        end_time = st.slider("Selesai (detik):", 0.0, float(duration), float(duration))
+    # 2. ANALISIS FILE PDF
+    elif file_extension == "pdf":
+        with pdfplumber.open(uploaded_file) as pdf:
+            total_pages = len(pdf.pages)
+            st.write(f"Total Halaman PDF: **{total_pages} halaman**")
+            
+            text_content = ""
+            for i, page in enumerate(pdf.pages):
+                text_content += f"\n--- Halaman {i+1} ---\n" + (page.extract_text() or "")
+            
+            # Statistik Teks Sederhana
+            words = text_content.split()
+            st.metric("Estimasi Jumlah Kata", len(words))
+            
+            with st.expander("Lihat Seluruh Isi Teks Ekstraksi"):
+                st.text_area("Teks PDF:", text_content, height=300)
+
+    # 3. ANALISIS FILE JSON
+    elif file_extension == "json":
+        try:
+            data = json.load(uploaded_file)
+            st.success("Format JSON valid!")
+            st.json(data)
+        except Exception as e:
+            st.error(f"Gagal membaca JSON: {e}")
+
+    # 4. ANALISIS FILE TEKS (TXT)
+    elif file_extension == "txt":
+        string_data = uploaded_file.getvalue().decode("utf-8")
+        lines = string_data.splitlines()
+        words = string_data.split()
         
-    with ctrl_col2:
-        st.write("**Aksi & Ekspor**")
-        effect_choice = st.selectbox("Pilih Efek Tambahan:", ["Normal", "Grayscale (Hitam Putih)", "Brighten (Cerahkan)"])
+        c1, c2 = st.columns(2)
+        c1.metric("Jumlah Baris", len(lines))
+        c2.metric("Jumlah Kata", len(words))
         
-        # Jarak tombol agar sejajar dengan slider di sebelah kiri
-        st.write("") 
-        if st.button("▶ Proses & Terapkan", use_container_width=True):
-            if start_time >= end_time:
-                st.error("Waktu mulai harus lebih kecil dari waktu selesai!")
-            else:
-                st.success(f"Berhasil memproses video (Efek: {effect_choice}, Durasi: {start_time:.1f}s - {end_time:.1f}s)!")
+        st.subheader("Isi Teks:")
+        st.text_area("Teks:", string_data, height=250)
+
+    # 5. ANALISIS FILE ZIP (Arsip)
+    elif file_extension == "zip":
+        with zipfile.ZipFile(uploaded_file, 'r') as z:
+            file_list = z.namelist()
+            st.write(f"Arsip ZIP berisi **{len(file_list)} file/folder** di dalamnya:")
+            
+            df_zip = pd.DataFrame({"Daftar Isi File di Dalam ZIP": file_list})
+            st.dataframe(df_zip, use_container_width=True)
