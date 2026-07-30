@@ -114,7 +114,7 @@ if logo_path:
     st.markdown(f"""
         <div class="header-container">
             <img src="data:image/png;base64,{logo_base64}" width="85" style="border-radius: 10px;">
-            <h1 class="header-title">Ampera Enterprise Analyzer</h1>
+            <h1 class="header-title">Ampera Enterprise Universal File & Media Analyzer</h1>
         </div>
     """, unsafe_allow_html=True)
 else:
