@@ -6,3 +6,4 @@ pdfplumber
 Pillow
 Markdown
 plotly
+moviepy
