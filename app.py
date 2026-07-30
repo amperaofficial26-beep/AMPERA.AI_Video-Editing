@@ -4,154 +4,245 @@ import json
 import pdfplumber
 import zipfile
 import os
+import tempfile
+import datetime
 from PIL import Image
+import plotly.express as expression_px
 
-st.set_page_config(page_title="Multi-Format File Analyzer", layout="wide")
+st.set_page_config(page_title="Enterprise Universal File Analyzer", layout="wide")
 
-st.title("📂 Mega Universal File Analyzer (100+ Format Support)")
-st.write("Unggah file jenis apa saja untuk mendeteksi metadata, kategori, penjelasan format, serta melihat isi analisis dasarnya secara instan tanpa AI.")
+st.title("📂 Enterprise Universal File & Data Analyzer")
+st.write("Aplikasi analisis file profesional dengan manajemen memori, router otomatis, visualisasi Plotly interaktif, dan pencarian kata kunci.")
 
-# Kamus Ensiklopedia Kategori & Penjelasan 100+ Jenis File
+# --- 1. FILE DIRECTORY & ENSIKLOPEDIA FORMAT ---
 FILE_DIRECTORY = {
-    # Dokumen & Perkantoran
-    "pdf": ("Dokumen Portable", "Format dokumen digital portabel yang sering digunakan untuk e-book, laporan resmi, dan formulir."),
-    "docx": ("Dokumen Microsoft Word", "Format dokumen pengolah kata berbasis XML yang dikembangkan oleh Microsoft."),
-    "doc": ("Dokumen Word Klasik", "Format dokumen biner lama dari Microsoft Word sebelum standar XML."),
-    "xlsx": ("Spreadsheet Excel", "Format lembar kerja (tabel dan angka) modern dari Microsoft Excel."),
-    "xls": ("Spreadsheet Excel Lama", "Format lembar kerja biner tradisional Microsoft Excel."),
-    "csv": ("Data Tabular Terpisah Koma", "Format file teks sederhana untuk menyimpan data tabel (baris dan kolom)."),
-    "txt": ("Teks Polos", "Format file teks murni tanpa gaya pemformatan khusus."),
-    "pptx": ("Presentasi PowerPoint", "Format file presentasi slide dari Microsoft PowerPoint."),
-    "pdf": ("Dokumen PDF", "Format dokumen dokumen universal."),
-    "rtf": ("Rich Text Format", "Format teks lintas platform yang mendukung dasar pemformatan huruf."),
-    "odt": ("OpenDocument Text", "Format dokumen teks standar terbuka (biasanya digunakan LibreOffice/OpenOffice)."),
-    
-    # Data & Pemrograman / Kode
-    "json": ("JavaScript Object Notation", "Format ringan berbasis teks untuk pertukaran data terstruktur."),
-    "xml": ("Extensible Markup Language", "Format markup untuk menyimpan dan mentransmisikan data terstruktur."),
-    "html": ("HyperText Markup Language", "Format kode standar untuk merancang halaman situs web."),
-    "css": ("Cascading Style Sheets", "File pengaturan gaya dan tata letak visual halaman web."),
-    "js": ("JavaScript Source Code", "File skrip pemrograman yang berjalan di sisi web/browser."),
-    "py": ("Python Source Code", "File kode skrip bahasa pemrograman Python."),
-    "sql": ("Database Query", "File skrip berisi perintah bahasa kueri basis data relasional."),
-    "yaml": ("YAML Configuration", "Format serialisasi data yang ramah dibaca manusia untuk konfigurasi."),
-    "yml": ("YAML Configuration", "Format konfigurasi alternatif dari YAML."),
-    "md": ("Markdown Documentation", "Format teks dengan markup ringan untuk dokumentasi teks dan catatan."),
-    
-    # Arsip & Kompresi
-    "zip": ("Arsip Terkompresi ZIP", "Format file kompresi standar untuk membungkus banyak file/folder."),
-    "rar": ("Arsip Terkompresi RAR", "Format arsip file berpemilik dengan tingkat kompresi tinggi."),
-    "tar": ("Tape Archive", "Format penggabung banyak file Unix tanpa kompresi bawaan."),
-    "gz": ("Gzip Compressed", "Format file tunggal yang dikompresi menggunakan algoritma Gzip."),
-    "7z": ("7-Zip Archive", "Format arsip terkompresi dengan rasio kompresi sangat tinggi."),
-    
-    # Gambar & Grafis
-    "png": ("Portable Network Graphics", "Format gambar raster berkualitas tinggi yang mendukung latar belakang transparan."),
-    "jpg": ("JPEG Image", "Format gambar terkompresi yang paling umum digunakan untuk foto digital."),
-    "jpeg": ("JPEG Image", "Varian ekstensi standar dari format gambar JPEG."),
-    "gif": ("Graphics Interchange Format", "Format gambar yang mendukung animasi pendek berbasis bingkai."),
-    "webp": ("WebP Image", "Format gambar modern besutan Google dengan ukuran kecil dan kualitas tinggi."),
-    "svg": ("Scalable Vector Graphics", "Format gambar vektor berbasis XML yang tidak pecah saat di-zoom."),
-    "bmp": ("Bitmap Image", "Format gambar raster mentah tanpa kompresi berukuran besar."),
-    "ico": ("Icon File", "Format file khusus untuk ikon aplikasi atau situs web.")
+    "pdf": ("Dokumen PDF", "Dokumen portabel untuk laporan resmi dan e-book."),
+    "docx": ("Dokumen Word", "Format dokumen pengolah kata berbasis XML."),
+    "xlsx": ("Spreadsheet Excel", "Format lembar kerja dan tabel data modern."),
+    "csv": ("Data Tabular CSV", "Format file teks untuk menyimpan data tabel."),
+    "txt": ("Teks Polos", "Format file teks murni."),
+    "json": ("JSON Data", "Format pertukaran data terstruktur."),
+    "py": ("Python Source Code", "File skrip pemrograman Python."),
+    "md": ("Markdown Documentation", "Format teks dengan markup ringan."),
+    "png": ("Gambar PNG", "Format gambar raster berkualitas tinggi."),
+    "jpg": ("Gambar JPEG", "Format gambar terkompresi umum."),
+    "jpeg": ("Gambar JPEG", "Format gambar standar."),
+    "webp": ("Gambar WebP", "Format gambar modern berukuran kecil."),
+    "zip": ("Arsip ZIP", "Format file kompresi data.")
 }
 
-# Bagian Upload File Universal
-uploaded_file = st.file_uploader("Pilih file Anda (Mendukung semua ekstensi)", type=None)
+# --- 2. MANAJEMEN SESI & SAMPLE DATA ---
+if "analysis_history" not in st.session_state:
+    st.session_state.analysis_history = []
 
+# Tombol Sampel Data Bawaan
+with st.sidebar:
+    st.header("⚙️ Kontrol & Data Contoh")
+    use_sample = st.button("🧪 Coba dengan Data Contoh (CSV)")
+    st.markdown("---")
+    st.markdown("**Batasan Sistem:**")
+    st.text("• Maksimal ukuran file: 200 MB\n• Pembersihan memori otomatis aktif")
+
+# Mengatur sampel data jika tombol ditekan
+uploaded_file = None
+if use_sample:
+    # Membuat sampel dataframe dummy secara instan
+    sample_df = pd.DataFrame({
+        "Kategori": ["Elektronik", "Pakaian", "Makanan", "Elektronik", "Pakaian"],
+        "Penjualan": [1500000, 450000, 120000, 2300000, 600000],
+        "Jumlah": [10, 25, 50, 15, 30],
+        "Kepuasan": [4.5, 4.0, 3.8, 4.9, 4.2]
+    })
+    temp_sample = tempfile.NamedTemporaryFile(delete=False, suffix='.csv')
+    sample_df.to_csv(temp_sample.name, index=False)
+    # Bungkus sebagai objek file Streamlit-like
+    with open(temp_sample.name, "rb") as f:
+        class SampleFile:
+            def __init__(self, file_obj, name):
+                self.name = name
+                self.size = os.path.getsize(file_obj)
+                self._file = file_obj
+            def read(self):
+                return self._file.read()
+            def getvalue(self):
+                self._file.seek(0)
+                return self._file.read()
+        uploaded_file = SampleFile(f, "sample_penjualan.csv")
+
+else:
+    # Standar File Uploader dengan Drag and Drop
+    uploaded_file = st.file_uploader(
+        "Unggah file Anda (CSV, Excel, JSON, PDF, TXT, Gambar, atau ZIP):", 
+        type=["csv", "xlsx", "xls", "json", "txt", "pdf", "docx", "png", "jpg", "jpeg", "webp", "zip", "py", "md"]
+    )
+
+# --- 3. PEMROSESAN UTAMA DENGAN TEMPFILE & CLEANUP ---
 if uploaded_file is not None:
     file_name = uploaded_file.name
     file_extension = file_name.split('.')[-1].lower()
-    file_size_kb = uploaded_file.size / 1024
-    file_size_mb = file_size_kb / 1024
-    
-    # Ambil penjelasan dari kamus, atau berikan informasi umum jika tidak terdaftar
-    cat_info, desc_info = FILE_DIRECTORY.get(
-        file_extension, 
-        ("File Umum / Biner", "Format file umum yang dapat dianalisis berdasarkan struktur biner atau ukuran metadatanya.")
-    )
+    file_size_bytes = uploaded_file.size if hasattr(uploaded_file, 'size') else len(uploaded_file.getvalue())
+    file_size_kb = file_size_bytes / 1024
 
-    # --- INFORMASI METADATA & PENJELASAN FORMAT ---
-    st.markdown("---")
-    st.subheader("📖 Ensiklopedia & Penjelasan Format File")
-    
-    info_col1, info_col2 = st.columns(2)
-    with info_col1:
-        st.info(f"**Kategori Sistem:** {cat_info}")
-        st.write(f"**Penjelasan Format:** {desc_info}")
-    with info_col2:
-        st.metric("Nama File", file_name)
-        st.metric("Ekstensi", f".{file_extension.upper()}")
-        size_str = f"{file_size_mb:.2f} MB" if file_size_kb >= 1024 else f"{file_size_kb:.2f} KB"
-        st.metric("Ukuran File", size_str)
-
-    st.markdown("---")
-    st.subheader("🔍 Hasil Analisis & Ekstraksi Isi File")
-    
-    # 1. ANALISIS DATA TABULAR (CSV, Excel)
-    if file_extension in ["csv", "xlsx", "xls"]:
-        try:
-            df = pd.read_csv(uploaded_file) if file_extension == "csv" else pd.read_excel(uploaded_file)
-            tab1, tab2, tab3 = st.tabs(["Pratinjau Tabel", "Statistika Data", "Struktur Kolom"])
-            with tab1:
-                st.dataframe(df.head(50), use_container_width=True)
-            with tab2:
-                st.dataframe(df.describe(), use_container_width=True)
-            with tab3:
-                col_df = pd.DataFrame({"Kolom": df.columns, "Tipe Data": df.dtypes.astype(str), "Null Count": df.isnull().sum()})
-                st.dataframe(col_df, use_container_width=True)
-        except Exception as e:
-            st.error(f"Gagal memproses tabel: {e}")
-
-    # 2. ANALISIS DOKUMEN PDF
-    elif file_extension == "pdf":
-        try:
-            with pdfplumber.open(uploaded_file) as pdf:
-                st.metric("Total Halaman", len(pdf.pages))
-                full_text = "".join([p.extract_text() or "" for p in pdf.pages])
-                st.metric("Estimasi Jumlah Kata", len(full_text.split()))
-                with st.expander("Lihat Seluruh Teks Dokumen"):
-                    st.text_area("Isi Teks PDF:", full_text, height=300)
-        except Exception as e:
-            st.error(f"Gagal membaca PDF: {e}")
-
-    # 3. ANALISIS FILE GAMBAR (PNG, JPG, WEBP, DLL)
-    elif file_extension in ["png", "jpg", "jpeg", "webp", "bmp", "gif"]:
-        try:
-            img = Image.open(uploaded_file)
-            w, h = img.size
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Lebar (Width)", f"{w} px")
-            c2.metric("Tinggi (Height)", f"{h} px")
-            c3.metric("Mode Warna", img.mode)
-            st.image(img, caption=f"Pratinjau Gambar: {file_name}", use_column_width=True)
-        except Exception as e:
-            st.error(f"Gagal memuat gambar: {e}")
-
-    # 4. ANALISIS ARSIP ZIP
-    elif file_extension == "zip":
-        try:
-            with zipfile.ZipFile(uploaded_file, 'r') as z:
-                file_list = z.namelist()
-                st.write(f"Arsip ini berisi **{len(file_list)} item** file/folder di dalamnya:")
-                st.dataframe(pd.DataFrame({"Daftar File Dalam Arsip": file_list}), use_container_width=True)
-        except Exception as e:
-            st.error(f"Gagal membaca arsip ZIP: {e}")
-
-    # 5. ANALISIS FILE TEKS / KODE (TXT, JSON, PY, HTML, CSS, MD, DLL)
+    # Validasi Ukuran File (Maksimal 200 MB)
+    if file_size_kb > 204800:
+        st.error("❌ Ukuran file terlalu besar! Batas maksimum adalah 200 MB.")
     else:
+        # Indikator Loading Profesional
+        with st.spinner("⏳ Memproses file secara aman di server..."):
+            # Gunakan tempfile untuk manajemen memori yang bersih
+            temp_dir = tempfile.TemporaryDirectory()
+            temp_path = os.path.join(temp_dir.name, file_name)
+            
+            with open(temp_path, "wb") as f:
+                f.write(uploaded_file.getvalue() if hasattr(uploaded_file, 'getvalue') else uploaded_file.read())
+
+            file_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cat_info, desc_info = FILE_DIRECTORY.get(
+                file_extension, 
+                ("File Universal / Biner", "Format file yang dianalisis strukturnya secara umum.")
+            )
+
+        st.success(f"✅ Berhasil memuat file: **{file_name}**")
+
+        # --- 4. PANEL INFORMASI & METADATA ---
+        st.markdown("---")
+        st.subheader("📖 Ensiklopedia & Metadata File")
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        col_m1.metric("Kategori Sistem", cat_info)
+        col_m2.metric("Ukuran File", f"{file_size_kb:.2f} KB")
+        col_m3.metric("Waktu Pemrosesan", file_timestamp)
+        col_m4.metric("Ekstensi", f".{file_extension.upper()}")
+
+        st.markdown("---")
+        st.subheader("🔍 Smart File Router & Hasil Analisis")
+
+        # --- ROUTER 1: ARSIP & FILE TERKOMPRESI (.ZIP) ---
+        if file_extension == "zip":
+            st.info("📦 Terdeteksi arsip terkompresi. Mengekstrak isi file...")
+            try:
+                with zipfile.ZipFile(temp_path, 'r') as archive:
+                    file_list = archive.namelist()
+                    st.write(f"Ditemukan **{len(file_list)} item** di dalam arsip:")
+                    st.dataframe(pd.DataFrame({"Daftar File Dalam Arsip": file_list}), use_container_width=True)
+            except Exception as e:
+                st.error(f"Gagal membaca arsip ZIP: {e}")
+
+        # --- ROUTER 2: DATA TABULAR (CSV, Excel, JSON) ---
+        elif file_extension in ["csv", "xlsx", "xls", "json"]:
+            try:
+                if file_extension == "csv":
+                    df = pd.read_csv(temp_path)
+                elif file_extension in ["xlsx", "xls"]:
+                    df = pd.read_excel(temp_path)
+                elif file_extension == "json":
+                    df = pd.read_json(temp_path)
+
+                # Ringkasan Statistik Otomatis (KPI)
+                st.write("### 📊 Ringkasan Statistik Utama (KPI)")
+                kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+                kpi1.metric("Total Baris", df.shape[0])
+                kpi2.metric("Total Kolom", df.shape[1])
+                kpi3.metric("Total Sel Kosong (Missing)", int(df.isnull().sum().sum()))
+                kpi4.metric("Duplikat Data", int(df.duplicated().sum()))
+
+                # Pratinjau Data Interaktif (st.dataframe dengan sorting & filter)
+                st.write("### 📋 Pratinjau Data Interaktif")
+                st.dataframe(df, use_container_width=True)
+
+                # Visualisasi Dinamis Menggunakan Plotly
+                st.write("### 📈 Visualisasi Grafik Dinamis")
+                numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+                categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+
+                if numeric_cols and categorical_cols:
+                    v_col1, v_col2 = st.columns(2)
+                    with v_col1:
+                        x_axis = st.selectbox("Pilih Sumbu X (Kategori):", categorical_cols)
+                    with v_col2:
+                        y_axis = st.selectbox("Pilih Sumbu Y (Nilai Numerik):", numeric_cols)
+
+                    fig = expression_px.bar(df, x=x_axis, y=y_axis, title=f"Grafik Batang {y_axis} berdasarkan {x_axis}")
+                    st.plotly_chart(fig, use_container_width=True)
+                elif numeric_cols:
+                    fig = expression_px.box(df, y=numeric_cols[0], title=f"Distribusi Statistik {numeric_cols[0]}")
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("Tidak ada kolom numerik yang cukup untuk membuat grafik otomatis.")
+
+                # Ekspor Hasil Analisis
+                st.write("### 💾 Ekspor Data Olahan")
+                csv_export = df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="⬇️ Unduh Data ke Format CSV",
+                    data=csv_export,
+                    file_name=f"processed_{file_name}",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+
+            except Exception as e:
+                st.error(f"Gagal memproses data tabular: {e}")
+
+        # --- ROUTER 3: DOKUMEN TEKS & PDF (PDF, TXT, DOCX, PY, MD) ---
+        elif file_extension in ["pdf", "txt", "docx", "py", "md"]:
+            extracted_text = ""
+            try:
+                if file_extension == "pdf":
+                    with pdfplumber.open(temp_path) as pdf:
+                        extracted_text = "".join([page.extract_text() or "" for page in pdf.pages])
+                else:
+                    with open(temp_path, "r", encoding="utf-8", errors="ignore") as f:
+                        extracted_text = f.read()
+
+                # Metrik Teks
+                words_list = extracted_text.split()
+                t1, t2 = st.columns(2)
+                t1.metric("Estimasi Jumlah Kata", len(words_list))
+                t2.metric("Jumlah Karakter", len(extracted_text))
+
+                # Fitur Pencarian Kata Kunci (Keyword Search)
+                st.write("### 🔎 Pencarian Kata Kunci dalam Dokumen")
+                keyword = st.text_input("Masukkan kata atau frasa yang ingin dicari:")
+                if keyword:
+                    count_kw = extracted_text.lower().count(keyword.lower())
+                    st.info(f"Kata '**{keyword}**' ditemukan sebanyak **{count_kw}** kali dalam dokumen.")
+
+                # Editor Teks & Ekstraksi / Ringkasan Poin Penting
+                st.write("### 📝 Editor Teks & Pratinjau Dokumen")
+                edited_content = st.text_area("Isi Dokumen (Dapat Diedit):", value=extracted_text, height=300)
+
+                # Ekspor Teks
+                st.download_button(
+                    label="💾 Unduh Dokumen Hasil Suntingan",
+                    data=edited_content,
+                    file_name=f"edited_{file_name}",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+
+            except Exception as e:
+                st.error(f"Gagal mengekstrak teks dokumen: {e}")
+
+        # --- ROUTER 4: MEDIA VISUAL (Gambar) ---
+        elif file_extension in ["png", "jpg", "jpeg", "webp"]:
+            try:
+                img = Image.open(temp_path)
+                w, h = img.size
+                
+                i1, i2, i3 = st.columns(3)
+                i1.metric("Lebar Resolusi", f"{w} px")
+                i2.metric("Tinggi Resolusi", f"{h} px")
+                i3.metric("Mode Warna", img.mode)
+
+                st.image(img, caption=f"Pratinjau Gambar: {file_name}", use_column_width=True)
+            except Exception as e:
+                st.error(f"Gagal memuat file gambar: {e}")
+
+        else:
+            st.warning("Format file dikenali sistem, namun tidak memerlukan parser khusus. Metadata dasar berhasil dicatat.")
+
+        # --- 5. CLEANUP OTOMATIS MEMORI SERVER ---
         try:
-            content = uploaded_file.getvalue().decode("utf-8", errors="ignore")
-            lines = content.splitlines()
-            words = content.split()
-            
-            c1, c2 = st.columns(2)
-            c1.metric("Jumlah Baris", len(lines))
-            c2.metric("Jumlah Kata", len(words))
-            
-            if file_extension == "json":
-                st.json(json.loads(content))
-            else:
-                st.text_area("Pratinjau Isi File:", content, height=300)
-        except Exception as e:
-            st.warning("File berformat biner khusus. Metadata dasar di atas berhasil dikenali, namun isi teks tidak dapat ditampilkan langsung.")
+            temp_dir.cleanup()
+        except Exception:
+            pass
