@@ -39,20 +39,24 @@ for f in logo_file_options:
         logo_path = f
         break
 
-# Konfigurasi CSS Background Kustom & Styling Judul
+# --- CUSTOM CSS UNTUK BACKGROUND & KONTRAS TEKS DI MOBILE/DESKTOP ---
 if bg_path:
     bin_str = get_base64_of_bin_file(bg_path)
     page_bg_css = f"""
     <style>
     .stApp {{
-        background-image: linear-gradient(rgba(15, 23, 42, 0.88), rgba(15, 23, 42, 0.88)), url("data:image/png;base64,{bin_str}");
+        background-image: linear-gradient(rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.92)), url("data:image/png;base64,{bin_str}");
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
-        color: #f8fafc;
+        color: #ffffff !important;
+    }}
+    /* Memaksa semua teks label, metrik, dan heading menjadi putih/terang */
+    p, span, label, div, [data-testid="stMetricLabel"], [data-testid="stMetricValue"] {{
+        color: #f8fafc !important;
     }}
     [data-testid="stSidebar"] {{
-        background-color: rgba(30, 41, 59, 0.92);
+        background-color: rgba(30, 41, 59, 0.95);
         border-right: 1px solid #334155;
     }}
     .header-container {{
@@ -64,7 +68,7 @@ if bg_path:
     .header-title {{
         font-size: 2.5rem;
         font-weight: 700;
-        color: #f1f5f9 !important;
+        color: #ffffff !important;
         margin: 0;
     }}
     </style>
@@ -74,7 +78,10 @@ else:
     <style>
     .stApp {
         background-color: #0f172a;
-        color: #f8fafc;
+        color: #ffffff;
+    }
+    p, span, label, div, [data-testid="stMetricLabel"], [data-testid="stMetricValue"] {
+        color: #f8fafc !important;
     }
     [data-testid="stSidebar"] {
         background-color: #1e293b;
@@ -89,7 +96,7 @@ else:
     .header-title {
         font-size: 2.5rem;
         font-weight: 700;
-        color: #f1f5f9 !important;
+        color: #ffffff !important;
         margin: 0;
     }
     </style>
